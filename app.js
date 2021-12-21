@@ -30,7 +30,10 @@ mongoose.connect('mongodb://root:password123@localhost:27017/chatapp?authSource=
 app.get("/", function (req, res, next) {
   Message.find({}, {}, { sort: { date: -1 } }, function (err, msgs) {
     if (err) throw err;
-    return res.render('index', { messages: msgs });
+    return res.render('index', {
+      messages: msgs,
+      user: req.session && req.session.user ? req.session.user : null
+    });
   });
 });
 
@@ -58,10 +61,19 @@ app.get("/login", function (req, res, next) {
   return res.render('login');
 });
 
-app.post("/login", passport.authenticate('local', {
-  successRedirect: "/",
-  failureRedirect: "/login"
-}));
+app.post("/login", passport.authenticate('local'), function (req, res, next) {
+  User.findOne({ _id: req.session.passport.user }, function (err, user) {
+    if (err || !user || !req.session) {
+      return res.redirect('/login');
+    } else {
+      req.session.user = {
+        username: user.username,
+        avatar_path: user.avatar_path
+      };
+      return res.redirect("/");
+    }
+  });
+});
 
 passport.use(new LocalStrategy(
   function (username, password, done) {
